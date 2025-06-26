@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>视频合成器</title>
+    <style>
+        .image-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .image-item {
+            border: 1px solid #ccc;
+            padding: 10px;
+            width: 200px;
+        }
+        .image-item img {
+            width: 100%;
+            height: auto;
+        }
+        #progressBar {
+            width: 100%;
+            background-color: #f3f3f3;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 20px;
+            display: none;
+        }
+        #progressBar div {
+            height: 20px;
+            background-color: #4caf50;
+            width: 0;
+            transition: width 0.3s;
+        }
+        #downloadLink {
+            display: none;
+            margin-top: 20px;
+            font-size: 16px;
+            color: blue;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>上传素材并生成视频</h2>
+    <form id="videoForm" enctype="multipart/form-data">
+        <label>上传多张图片:</label><br>
+        <input type="file" name="images" multiple accept="image/*"><br><br>
+
+        <label>上传背景音乐:</label><br>
+        <input type="file" name="audio" accept="audio/*"><br><br>
+
+        <label>上传背景图片:</label><br>
+        <input type="file" name="background" accept="image/*"><br><br>
+
+        <div id="preview" class="image-preview"></div>
+
+        <button type="submit">生成视频</button>
+    </form>
+
+    <div id="progressBar"><div></div></div>
+    <a id="downloadLink">点击下载生成的视频</a>
+
+    <script>
+        const imageInput = document.querySelector('input[name="images"]');
+        const preview = document.getElementById('preview');
+        const progressBar = document.getElementById('progressBar');
+        const progressBarInner = progressBar.querySelector('div');
+        const downloadLink = document.getElementById('downloadLink');
+        let currentTaskId = null;
+
+async function pollTaskStatus() {
+    const response = await fetch(`/task_status?task_id=${currentTaskId}`);
+    const data = await response.json();
+
+    if (data.status === "completed") {
+        document.getElementById("downloadLink").style.display = "inline-block";
+        return;
+    }
+
+    setTimeout(pollTaskStatus, 2000); // 每两秒轮询一次
+}
+
+document.getElementById('videoForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+    const progressBar = document.getElementById('progressBar');
+    const progressBarInner = progressBar.querySelector('div');
+    const downloadLink = document.getElementById('downloadLink');
+
+    progressBar.style.display = 'block';
+    progressBarInner.style.width = '0%';
+    downloadLink.style.display = 'none';
+
+    const response = await fetch('/start_generate', {
+        method: 'POST',
+        body: formData
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error("请求失败:", errorText);
+        alert("请求失败，请查看控制台日志");
+        return;
+    }
+
+    const result = await response.json();
+    currentTaskId = result.task_id;
+
+    // 开始轮询任务状态
+    pollTaskStatus();
+});
+        function pollTaskStatus(taskId) {
+    fetch(`/task_status?task_id=${taskId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'completed') {
+                // 下载视频
+            } else {
+                setTimeout(() => pollTaskStatus(taskId), 1000);
+            }
+        });
+}
+        imageInput.addEventListener('change', function () {
+            preview.innerHTML = '';
+            const files = Array.from(this.files);
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const container = document.createElement('div');
+                    container.className = 'image-item';
+
+                    container.innerHTML = `
+                        <img src="${e.target.result}" alt="预览图">
+                        <label>动画效果:</label>
+                        <select name="effect_${index}">
+                            <option value="slide_vertical">垂直滑动</option>
+                            <option value="slide_horizontal">水平滑动</option>
+                            <option value="zoom">缩放</option>
+                        </select><br><br>
+                        
+                        <label>动画时长(秒):</label>
+                        <input type="number" name="animate_duration_${index}" value="1" min="0.5" step="0.5"><br><br>
+                        
+                        <label>停留时长(秒):</label>
+                        <input type="number" name="stay_duration_${index}" value="2" min="0.5" step="0.5">
+                    `;
+
+                    preview.appendChild(container);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+
+        document.getElementById('videoForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            // 使用表单直接构造 formData
+            const formData = new FormData(this);
+
+            // 显示进度条并重置
+            progressBar.style.display = 'block';
+            progressBarInner.style.width = '0%';
+            downloadLink.style.display = 'none';
+
+            // 发送请求
+            const response = await fetch('/start_generate', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("请求失败:", errorText);
+                alert("请求失败，请查看控制台日志");
+                return;
+            }
+
+            let receivedLength = 0;
+            const totalLength = response.headers.get('content-length');
+            const reader = response.body.getReader();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                receivedLength += value.length;
+
+                const percent = Math.round((receivedLength / totalLength) * 100);
+                progressBarInner.style.width = percent + '%';
+            }
+
+            const videoBlob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(videoBlob);
+            downloadLink.href = downloadUrl;
+            downloadLink.style.display = 'inline-block';
+            progressBar.style.display = 'none';
+        });
+    </script>
+</body>
+</html>
