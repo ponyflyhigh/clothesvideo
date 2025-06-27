@@ -4,40 +4,68 @@
     <meta charset="UTF-8">
     <title>视频合成器</title>
     <style>
+        .add-image-btn {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            border-radius: 4px;
+        }
+        .add-image-btn:hover {
+            background-color: #0056b3;
+        }
+
         .image-preview {
             display: flex;
-            flex-wrap: wrap;
+            overflow-x: auto;
             gap: 10px;
             margin-top: 20px;
+            padding-bottom: 10px;
         }
+
         .image-item {
             border: 1px solid #ccc;
             padding: 10px;
             width: 200px;
+            box-sizing: border-box;
+            text-align: center;
+            flex-shrink: 0;
         }
+
         .image-item img {
             width: 100%;
             height: auto;
+            display: block;
         }
-        #progressBar {
+
+        .form-group {
+            margin-top: 10px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .form-group input,
+        .form-group select {
             width: 100%;
-            background-color: #f3f3f3;
-            border-radius: 5px;
-            overflow: hidden;
-            margin-top: 20px;
-            display: none;
+            margin-top: 3px;
+            padding: 5px;
+            font-size: 14px;
         }
-        #progressBar div {
-            height: 20px;
-            background-color: #4caf50;
-            width: 0;
-            transition: width 0.3s;
-        }
-        #downloadLink {
-            display: none;
-            margin-top: 20px;
+
+        .delete-btn {
+            margin-top: 10px;
+            color: red;
+            background: none;
+            border: none;
             font-size: 16px;
-            color: blue;
             cursor: pointer;
         }
     </style>
@@ -46,7 +74,10 @@
     <h2>上传素材并生成视频</h2>
     <form id="videoForm" enctype="multipart/form-data">
         <label>上传多张图片:</label><br>
-        <input type="file" name="images" multiple accept="image/*"><br><br>
+        <!-- 隐藏原始 input -->
+        <input type="file" id="imageInput" name="images" multiple accept="image/*" style="display:none;">
+        <!-- 自定义添加按钮 -->
+        <button type="button" class="add-image-btn" onclick="document.getElementById('imageInput').click()">➕ 添加图片</button><br><br>
 
         <label>上传背景音乐:</label><br>
         <input type="file" name="audio" accept="audio/*"><br><br>
@@ -59,74 +90,28 @@
         <button type="submit">生成视频</button>
     </form>
 
-    <div id="progressBar"><div></div></div>
-    <a id="downloadLink">点击下载生成的视频</a>
+    <a id="downloadLink" style="display:none; margin-top:20px;" download>点击下载生成的视频</a>
 
     <script>
-        const imageInput = document.querySelector('input[name="images"]');
+        const imageInput = document.getElementById('imageInput');
         const preview = document.getElementById('preview');
-        const progressBar = document.getElementById('progressBar');
-        const progressBarInner = progressBar.querySelector('div');
-        const downloadLink = document.getElementById('downloadLink');
-        let currentTaskId = null;
+        let fileArray = []; // 存储当前选中的文件
 
-async function pollTaskStatus() {
-    const response = await fetch(`/task_status?task_id=${currentTaskId}`);
-    const data = await response.json();
+        function handleFiles(files) {
+            const newFiles = Array.from(files).filter(file =>
+                file.type.startsWith('image/') && !fileArray.some(f => f.name === file.name)
+            );
+            fileArray = [...fileArray, ...newFiles];
+            renderPreview();
+        }
 
-    if (data.status === "completed") {
-        document.getElementById("downloadLink").style.display = "inline-block";
-        return;
-    }
-
-    setTimeout(pollTaskStatus, 2000); // 每两秒轮询一次
-}
-
-document.getElementById('videoForm').addEventListener('submit', async function (e) {
-    e.preventDefault();
-
-    const formData = new FormData(this);
-    const progressBar = document.getElementById('progressBar');
-    const progressBarInner = progressBar.querySelector('div');
-    const downloadLink = document.getElementById('downloadLink');
-
-    progressBar.style.display = 'block';
-    progressBarInner.style.width = '0%';
-    downloadLink.style.display = 'none';
-
-    const response = await fetch('/start_generate', {
-        method: 'POST',
-        body: formData
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("请求失败:", errorText);
-        alert("请求失败，请查看控制台日志");
-        return;
-    }
-
-    const result = await response.json();
-    currentTaskId = result.task_id;
-
-    // 开始轮询任务状态
-    pollTaskStatus();
-});
-        function pollTaskStatus(taskId) {
-    fetch(`/task_status?task_id=${taskId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'completed') {
-                // 下载视频
-            } else {
-                setTimeout(() => pollTaskStatus(taskId), 1000);
-            }
-        });
-}
         imageInput.addEventListener('change', function () {
+            handleFiles(this.files);
+        });
+
+        function renderPreview() {
             preview.innerHTML = '';
-            const files = Array.from(this.files);
-            files.forEach((file, index) => {
+            fileArray.forEach((file, index) => {
                 const reader = new FileReader();
                 reader.onload = function (e) {
                     const container = document.createElement('div');
@@ -134,68 +119,76 @@ document.getElementById('videoForm').addEventListener('submit', async function (
 
                     container.innerHTML = `
                         <img src="${e.target.result}" alt="预览图">
-                        <label>动画效果:</label>
-                        <select name="effect_${index}">
-                            <option value="slide_vertical">垂直滑动</option>
-                            <option value="slide_horizontal">水平滑动</option>
-                            <option value="zoom">缩放</option>
-                        </select><br><br>
-                        
-                        <label>动画时长(秒):</label>
-                        <input type="number" name="animate_duration_${index}" value="1" min="0.5" step="0.5"><br><br>
-                        
-                        <label>停留时长(秒):</label>
-                        <input type="number" name="stay_duration_${index}" value="2" min="0.5" step="0.5">
+
+                        <!-- 删除按钮 -->
+                        <button type="button" class="delete-btn">❌ 删除</button>
+
+                        <div class="form-group">
+                            <label>动画效果:</label>
+                            <select name="effect_${index}">
+                                <option value="slide_vertical">垂直滑动</option>
+                                <option value="slide_horizontal">水平滑动</option>
+                                <option value="zoom">缩放</option>
+                                <option value="slide_left_to_right">左到右滑动</option>
+                                <option value="slide_right_to_left">右到左滑动</option>
+                                <option value="slide_top_to_bottom">上到下滑动</option>
+                                <option value="slide_bottom_to_top">下到上滑动</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>动画时长(秒):</label>
+                            <input type="number" name="animate_duration_${index}" value="1" min="0.5" step="0.5">
+                        </div>
+
+                        <div class="form-group">
+                            <label>停留时长(秒):</label>
+                            <input type="number" name="stay_duration_${index}" value="2" min="0.5" step="0.5">
+                        </div>
                     `;
+
+                    // 删除按钮事件绑定
+                    container.querySelector('.delete-btn').addEventListener('click', () => {
+                        fileArray.splice(index, 1); // 删除对应文件
+                        renderPreview(); // 重新渲染预览
+                    });
 
                     preview.appendChild(container);
                 };
                 reader.readAsDataURL(file);
             });
-        });
+        }
 
         document.getElementById('videoForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
-            // 使用表单直接构造 formData
-            const formData = new FormData(this);
+            const formData = new FormData();
+            const otherData = new FormData(this);
 
-            // 显示进度条并重置
-            progressBar.style.display = 'block';
-            progressBarInner.style.width = '0%';
-            downloadLink.style.display = 'none';
+            // 将过滤后的文件加入 formData
+            fileArray.forEach(file => formData.append('images', file));
 
-            // 发送请求
+            // 复制其他字段（音频、背景等）
+            for (let [key, value] of otherData.entries()) {
+                if (key !== 'images') {
+                    formData.append(key, value);
+                }
+            }
+
             const response = await fetch('/start_generate', {
                 method: 'POST',
                 body: formData
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error("请求失败:", errorText);
-                alert("请求失败，请查看控制台日志");
+                console.error("请求失败");
                 return;
             }
 
-            let receivedLength = 0;
-            const totalLength = response.headers.get('content-length');
-            const reader = response.body.getReader();
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                receivedLength += value.length;
-
-                const percent = Math.round((receivedLength / totalLength) * 100);
-                progressBarInner.style.width = percent + '%';
-            }
-
-            const videoBlob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(videoBlob);
-            downloadLink.href = downloadUrl;
+            const result = await response.json();
+            const downloadLink = document.getElementById('downloadLink');
+            downloadLink.href = `/download_video?task_id=${result.task_id}`;
             downloadLink.style.display = 'inline-block';
-            progressBar.style.display = 'none';
         });
     </script>
 </body>

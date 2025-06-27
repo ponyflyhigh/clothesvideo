@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频合成器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- 配置Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36D399',
+                        danger: '#F87272',
+                        neutral: {
+                            100: '#F3F4F6',
+                            200: '#E5E7EB',
+                            300: '#D1D5DB',
+                            400: '#9CA3AF',
+                            500: '#6B7280',
+                            600: '#4B5563',
+                            700: '#374151',
+                            800: '#1F2937',
+                            900: '#111827',
+                        }
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'card': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                        'hover': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                    }
+                },
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .bg-gradient-primary {
+                background: linear-gradient(135deg, #165DFF 0%, #0040C1 100%);
+            }
+            .transition-custom {
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+        }
+    </style>
+</head>
+<body class="font-inter bg-neutral-100 min-h-screen">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-md sticky top-0 z-10">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-film text-primary text-2xl"></i>
+                <h1 class="text-xl md:text-2xl font-bold text-neutral-800">视频合成器</h1>
+            </div>
+            <nav>
+                <ul class="flex space-x-6">
+                    <li><a href="#" class="text-neutral-600 hover:text-primary transition-custom"><i class="fa fa-home mr-1"></i>首页</a></li>
+                    <li><a href="#" class="text-neutral-600 hover:text-primary transition-custom"><i class="fa fa-history mr-1"></i>历史</a></li>
+                    <li><a href="#" class="text-neutral-600 hover:text-primary transition-custom"><i class="fa fa-question-circle mr-1"></i>帮助</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-card p-6 md:p-8 mb-8 transform hover:shadow-hover transition-custom">
+            <div class="text-center mb-8">
+                <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-neutral-800 mb-2">上传素材并生成视频</h2>
+                <p class="text-neutral-500 max-w-2xl mx-auto">上传图片、背景音乐和背景图片，自定义动画效果，轻松创建专业视频</p>
+            </div>
+
+            <form id="videoForm" enctype="multipart/form-data" class="space-y-8">
+                <!-- 图片上传区 -->
+                <div class="space-y-4">
+                    <label class="block text-lg font-semibold text-neutral-700 flex items-center">
+                        <i class="fa fa-picture-o text-primary mr-2"></i>上传多张图片
+                    </label>
+                    
+                    <!-- 自定义文件上传按钮 -->
+                    <div class="flex items-center justify-center">
+                        <label for="imageInput" class="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-neutral-300 rounded-lg cursor-pointer bg-neutral-50 hover:bg-neutral-100 transition-custom">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <i class="fa fa-cloud-upload text-4xl text-neutral-400 mb-2"></i>
+                                <p class="mb-2 text-sm text-neutral-500"><span class="font-medium">点击上传图片</span> 或拖放至此处</p>
+                                <p class="text-xs text-neutral-400">支持 JPG, PNG, GIF 等格式</p>
+                            </div>
+                            <input id="imageInput" type="file" name="images" multiple accept="image/*" class="hidden" />
+                        </label>
+                    </div>
+                    
+                    <!-- 图片预览区 -->
+                    <div id="preview" class="flex overflow-x-auto scrollbar-hide gap-4 py-4 -mx-2 px-2"></div>
+                </div>
+
+                <!-- 音频和背景图片上传 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <label class="block text-lg font-semibold text-neutral-700 flex items-center">
+                            <i class="fa fa-music text-primary mr-2"></i>上传背景音乐
+                        </label>
+                        <div class="relative">
+                            <input type="file" name="audio" accept="audio/*" class="hidden" id="audioInput">
+                            <label for="audioInput" class="block w-full px-4 py-3 text-sm text-neutral-500 bg-neutral-50 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-100 transition-custom">
+                                <div class="flex items-center justify-between">
+                                    <span><i class="fa fa-file-audio-o mr-2"></i>选择音频文件</span>
+                                    <i class="fa fa-chevron-down text-neutral-400"></i>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <label class="block text-lg font-semibold text-neutral-700 flex items-center">
+                            <i class="fa fa-image text-primary mr-2"></i>上传背景图片
+                        </label>
+                        <div class="relative">
+                            <input type="file" name="background" accept="image/*" class="hidden" id="backgroundInput">
+                            <label for="backgroundInput" class="block w-full px-4 py-3 text-sm text-neutral-500 bg-neutral-50 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-100 transition-custom">
+                                <div class="flex items-center justify-between">
+                                    <span><i class="fa fa-file-image-o mr-2"></i>选择图片文件</span>
+                                    <i class="fa fa-chevron-down text-neutral-400"></i>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 生成按钮 -->
+                <div class="pt-4">
+                    <button type="submit" class="w-full bg-gradient-primary text-white font-medium py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-custom flex items-center justify-center">
+                        <i class="fa fa-film mr-2"></i>
+                        <span>开始生成视频</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- 下载链接 -->
+            <div id="downloadContainer" class="mt-8 hidden">
+                <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i class="fa fa-check-circle text-2xl text-green-500"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-lg font-medium text-green-800">视频生成成功！</h3>
+                            <div class="mt-2 text-sm text-green-700">
+                                <p>点击下方按钮下载生成的视频文件</p>
+                            </div>
+                            <div class="mt-4">
+                                <a id="downloadLink" href="#" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-custom">
+                                    <i class="fa fa-download mr-2"></i>
+                                    下载视频
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 功能说明卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <div class="bg-white rounded-xl shadow-card p-6 hover:shadow-hover transition-custom">
+                <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-4">
+                    <i class="fa fa-picture-o text-primary text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-neutral-800 mb-2">多图片处理</h3>
+                <p class="text-neutral-600">支持上传多张图片，自定义每张图片的动画效果和显示时长，创建丰富的视觉体验。</p>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-card p-6 hover:shadow-hover transition-custom">
+                <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                    <i class="fa fa-music text-green-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-neutral-800 mb-2">背景音乐</h3>
+                <p class="text-neutral-600">添加自定义背景音乐，让您的视频更具感染力和专业度。</p>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-card p-6 hover:shadow-hover transition-custom">
+                <div class="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center mb-4">
+                    <i class="fa fa-magic text-purple-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-neutral-800 mb-2">丰富动画</h3>
+                <p class="text-neutral-600">多种动画效果可选，包括滑动、缩放等，为每张图片添加独特的转场效果。</p>
+            </div>
+        </div>
+    </main>
+
+ 
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const preview = document.getElementById('preview');
+        const downloadContainer = document.getElementById('downloadContainer');
+        const downloadLink = document.getElementById('downloadLink');
+        let fileArray = []; // 存储当前选中的文件
+
+        // 处理文件选择
+        function handleFiles(files) {
+            const newFiles = Array.from(files).filter(file =>
+                file.type.startsWith('image/') && !fileArray.some(f => f.name === file.name)
+            );
+            
+            if (newFiles.length === 0) {
+                showNotification('未选择新的图片文件', 'warning');
+                return;
+            }
+            
+            fileArray = [...fileArray, ...newFiles];
+            renderPreview();
+            showNotification(`成功添加 ${newFiles.length} 张图片`, 'success');
+        }
+
+        // 显示通知
+        function showNotification(message, type = 'info') {
+            // 简单实现，可根据需要扩展为更复杂的通知系统
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // 渲染预览
+        function renderPreview() {
+            preview.innerHTML = '';
+            
+            if (fileArray.length === 0) {
+                preview.innerHTML = `
+                    <div class="w-full h-40 flex items-center justify-center border-2 border-dashed border-neutral-300 rounded-lg bg-neutral-50">
+                        <p class="text-neutral-400">尚未选择图片</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            fileArray.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const container = document.createElement('div');
+                    container.className = 'relative flex-shrink-0 w-64 bg-white rounded-lg shadow-md overflow-hidden transition-custom hover:shadow-lg';
+                    
+                    container.innerHTML = `
+                        <div class="relative">
+                            <img src="${e.target.result}" alt="预览图" class="w-full h-40 object-cover">
+                            <button type="button" class="absolute top-2 right-2 w-8 h-8 bg-white/80 rounded-full flex items-center justify-center text-danger hover:bg-white transition-custom delete-btn">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="p-4 space-y-3">
+                            <h4 class="font-medium text-neutral-800 truncate">${file.name}</h4>
+                            
+                            <div class="space-y-2">
+                                <div>
+                                    <label class="block text-xs text-neutral-500 mb-1">动画效果</label>
+                                    <select name="effect_${index}" class="w-full p-2 border border-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                        <option value="slide_vertical">垂直滑动</option>
+                                        <option value="slide_horizontal">水平滑动</option>
+                                        <option value="zoom">缩放</option>
+                                        <option value="slide_left_to_right">左到右滑动</option>
+                                        <option value="slide_right_to_left">右到左滑动</option>
+                                        <option value="slide_top_to_bottom">上到下滑动</option>
+                                        <option value="slide_bottom_to_top">下到上滑动</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="block text-xs text-neutral-500 mb-1">动画时长(秒)</label>
+                                        <input type="number" name="animate_duration_${index}" value="1" min="0.5" step="0.5" class="w-full p-2 border border-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-neutral-500 mb-1">停留时长(秒)</label>
+                                        <input type="number" name="stay_duration_${index}" value="2" min="0.5" step="0.5" class="w-full p-2 border border-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // 删除按钮事件绑定
+                    container.querySelector('.delete-btn').addEventListener('click', () => {
+                        fileArray.splice(index, 1);
+                        renderPreview();
+                        showNotification('已删除图片', 'info');
+                    });
+                    
+                    preview.appendChild(container);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // 初始渲染预览
+        renderPreview();
+
+        // 监听文件选择
+        imageInput.addEventListener('change', function () {
+            handleFiles(this.files);
+            // 重置输入，以便可以再次选择同一文件
+            this.value = '';
+        });
+
+        // 表单提交处理
+        document.getElementById('videoForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            
+            // 验证
+            if (fileArray.length === 0) {
+                showNotification('请至少选择一张图片', 'error');
+                return;
+            }
+            
+            // 显示加载状态
+            const submitButton = this.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>生成中...';
+            
+            try {
+                const formData = new FormData();
+                const otherData = new FormData(this);
+
+                // 将过滤后的文件加入 formData
+                fileArray.forEach(file => formData.append('images', file));
+
+                // 复制其他字段（音频、背景等）
+                for (let [key, value] of otherData.entries()) {
+                    if (key !== 'images') {
+                        formData.append(key, value);
+                    }
+                }
+
+                // 模拟请求
+                // 实际环境中，这里应该发送真实的请求到后端
+                const response = {
+                    ok: true,
+                    json: async () => ({ task_id: '1234567890' })
+                };
+                
+                // 实际环境中应取消下面的注释，并注释掉上面的模拟响应
+                /*
+                const response = await fetch('/start_generate', {
+                    method: 'POST',
+                    body: formData
+                });
+                */
+
+                if (!response.ok) {
+                    throw new Error("请求失败");
+                }
+
+                const result = await response.json();
+                downloadLink.href = `/download_video?task_id=${result.task_id}`;
+                downloadContainer.classList.remove('hidden');
+                
+                // 滚动到下载区域
+                downloadContainer.scrollIntoView({ behavior: 'smooth' });
+                
+                showNotification('视频生成成功！', 'success');
+            } catch (error) {
+                console.error("Error:", error);
+                showNotification('视频生成失败，请重试', 'error');
+            } finally {
+                // 恢复按钮状态
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
+            }
+        });
+
+        // 音频和背景图片选择器样式处理
+        const audioInput = document.getElementById('audioInput');
+        const backgroundInput = document.getElementById('backgroundInput');
+        
+        audioInput.addEventListener('change', function() {
+            const label = this.nextElementSibling;
+            const fileName = this.files[0] ? this.files[0].name : '选择音频文件';
+            label.querySelector('span:first-child').innerHTML = `<i class="fa fa-file-audio-o mr-2"></i>${fileName}`;
+        });
+        
+        backgroundInput.addEventListener('change', function() {
+            const label = this.nextElementSibling;
+            const fileName = this.files[0] ? this.files[0].name : '选择图片文件';
+            label.querySelector('span:first-child').innerHTML = `<i class="fa fa-file-image-o mr-2"></i>${fileName}`;
+        });
+    </script>
+</body>
+</html>
+    

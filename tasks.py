@@ -1,21 +1,12 @@
-# tasks.py
-import uuid
-
-tasks = {}
+_tasks = {}
 
 def create_task():
+    import uuid
     task_id = str(uuid.uuid4())
-    tasks[task_id] = {"status": "processing", "progress": 0}
+    _tasks[task_id] = {"status": "pending"}
     return task_id
 
-def update_task_progress(task_id, progress):
-    if task_id in tasks:
-        tasks[task_id]["progress"] = progress
-
 def complete_task(task_id):
-    if task_id in tasks:
-        tasks[task_id]["status"] = "completed"
-        tasks[task_id]["progress"] = 1.0
+    _tasks[task_id]["status"] = "completed"
 
-def get_task(task_id):
-    return tasks.get(task_id)
+# 可选：清理不再需要的 get_task / update_task_progress 等函数
