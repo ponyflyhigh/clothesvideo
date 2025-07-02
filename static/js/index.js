@@ -95,7 +95,7 @@ function renderPreview() {
                     
                     <div class="space-y-1">
                         <label class="text-sm text-neutral-600">停留时长(秒)</label>
-                        <input type="number" name="stay_duration_${index}" value="1" min="0.5" step="0.5" 
+                        <input type="number" name="stay_duration_${index}" value="1" min="0" step="0.5" 
                                class="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all">
                     </div>
                     
