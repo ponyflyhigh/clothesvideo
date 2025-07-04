@@ -70,6 +70,8 @@ function renderPreview() {
                             <option value="slide_right_to_left">右到左滑动</option>
                             <option value="slide_top_to_bottom">上到下滑动</option>
                             <option value="slide_bottom_to_top">下到上滑动</option>
+                                <option value="spin">旋转</option> <!-- 新增旋转选项 -->
+
                         </select>
                     </div>
                     
@@ -82,7 +84,9 @@ function renderPreview() {
                             <option value="slide_right_to_left">右到左滑动</option>
                             <option value="slide_top_to_bottom">上到下滑动</option>
                             <option value="slide_bottom_to_top">下到上滑动</option>
-                        </select>
+                                       <option value="spin">旋转</option> <!-- 新增旋转选项 -->
+
+                            </select>
                     </div>
                 </div>
                 

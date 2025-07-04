@@ -92,7 +92,9 @@ def apply_effect(
             if effect_in == 'zoom':
                 return base_scale * (0.01 + 0.99 * progress)  # 从极小放大到基准
             elif effect_in == 'magnify':
-                return base_scale * (1 + 1 * progress)  # 从基准放大到1.3倍
+                return base_scale * (1 + 1 * progress)  # 从基准放大到2倍
+            elif effect_in == 'spin':
+                return base_scale * (0.01 + 0.99 * progress)  # 从极小放大到基准
             return base_scale  # 其他效果保持基准缩放
         elif t < (total_duration - animate_out_duration):
             # 停留阶段
@@ -103,8 +105,33 @@ def apply_effect(
             if effect_out == 'zoom':
                 return base_scale * (1 - 0.99 * progress)  # 从基准缩小到极小
             elif effect_out == 'magnify':
-                return base_scale * (1 + 1 * progress)  # 从基准放大到1.3倍
+                return base_scale * (1 + 1 * progress)  # 从基准放大到2倍
+            elif effect_out == 'spin':
+                return base_scale * (1 - 0.99 * progress)  # 从基准缩小到极小
             return base_scale
+
+    # --------------------------
+    # 旋转逻辑（仅控制角度，不影响缩放和位置）
+    # --------------------------
+    def get_rotation(t: float) -> float:
+    # 固定旋转圈数为5圈（无需用户调节）
+        spin_cycles = 3  # 默认为5圈
+        
+        if t < animate_in_duration:
+            # 进场阶段：5圈顺时针旋转
+            progress = get_progress(t, animate_in_duration)
+            if effect_in == 'spin':
+                return 360 * spin_cycles * progress  # 5圈 × 进度
+            return 0
+        elif t < (total_duration - animate_out_duration):
+            # 停留阶段：保持在5圈结束的角度
+            return 360 * spin_cycles if effect_in == 'spin' else 0
+        else:
+            # 离场阶段：5圈顺时针旋转
+            progress = get_progress(t - (total_duration - animate_out_duration), animate_out_duration)
+            if effect_out == 'spin':
+                return 360 * spin_cycles * (1 - progress)  # 5圈 × (1-进度)
+            return 0
 
     # --------------------------
     # 位置逻辑（仅控制位置，不影响缩放）
@@ -166,9 +193,10 @@ def apply_effect(
     # 应用动画
     background_clip = background_clip.resized(screen_size) if background_clip.size != screen_size else background_clip
     
-    # 关键：分别应用缩放和位置
+    # 关键：分别应用缩放、旋转和位置
     scaled_clip = foreground_clip.resized(get_scale)
-    animated_clip = scaled_clip\
+    rotated_clip = scaled_clip.rotated(get_rotation)
+    animated_clip = rotated_clip\
         .with_position(get_position)\
         .with_duration(total_duration)
 
@@ -176,8 +204,6 @@ def apply_effect(
         [background_clip.with_duration(total_duration), animated_clip],
         size=screen_size
     )
-
-
 
 def generate_video_clips(image_configs, background_path, screen_size=(720,1280)):
     clips = []
